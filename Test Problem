@@ -1,0 +1,100 @@
+% Domain Parameters
+Lx = 10; % Length of the domain in x-direction
+T_total = 5; % Total simulation time
+Nx = 100; % Number of spatial points
+Nt = 2000; % Number of time steps
+
+% Discretization
+Delta_x = Lx / (Nx - 1);
+Delta_t = T_total / Nt;
+
+% Stability Condition (CFL)
+c_max = 2; % Maximum wave speed, adjust based on c(x)
+gamma = 0.1; % Damping coefficient
+if Delta_t > Delta_x / (c_max * sqrt(2))
+    error('CFL condition not met. Reduce Delta_t or increase Delta_x.');
+end
+
+% Spatial Grid
+x = linspace(0, Lx, Nx);
+
+% Time Grid
+t = linspace(0, T_total, Nt);
+
+% Define c(x)
+c = 1 + 0.5 * x; % Example: c(x) increases linearly with x
+
+% Define S(x, t)
+S = @(x, t) exp(-((x - Lx/2).^2) / 0.5^2) .* sin(pi * t / T_total); 
+% Gaussian pulse in space, sinusoidal in time
+
+% Initialize displacement matrices
+u_prev = zeros(Nx, 1); % Displacement at time n-1
+u_current = zeros(Nx, 1); % Displacement at time n
+u_next = zeros(Nx, 1); % Displacement at time n+1
+
+% Initial Displacement: Gaussian Pulse
+sigma = 0.5;
+u_current = exp(-((x - Lx/2).^2) / (2 * sigma^2));
+
+% Initial Velocity: Zero (u_prev = u_current)
+u_prev = u_current;
+
+% Precompute coefficients
+c_squared = c.^2;
+gamma_dt = gamma * Delta_t;
+
+% Create VideoWriter object
+filename = 'test_P.avi';
+vidObj = VideoWriter(filename);
+vidObj.FrameRate = 10; % Set the frame rate
+open(vidObj);
+
+% Time stepping loop
+for n = 1:Nt-1
+    % Update interior points
+    for i = 2:Nx-1
+        u_next(i) = (2 * u_current(i) - u_prev(i) + ...
+                    (c_squared(i) * Delta_t^2 / Delta_x^2) * ...
+                    (u_current(i+1) - 2 * u_current(i) + u_current(i-1)) + ...
+                    Delta_t^2 * S(x(i), t(n))) / (1 + gamma_dt);
+    end
+    
+    % Apply Boundary Conditions (Fixed boundaries: u=0)
+    u_next(1) = 0;
+    u_next(Nx) = 0;
+    
+    % Update for next time step
+    u_prev = u_current;
+    u_current = u_next;
+    
+    % Visualization and capture frame for animation
+    if mod(n, 100) == 0
+        plot(x, u_current, 'b', 'LineWidth', 2);
+        xlabel('x');
+        ylabel('u(x, t)');
+        title(['Displacement at time t = ', num2str(t(n))]);
+        grid on;
+        drawnow;
+
+        % Capture the frame for the video
+        frame = getframe(gcf);
+        writeVideo(vidObj, frame);
+    end
+end
+
+% Close the VideoWriter object
+close(vidObj);
+
+% Display message
+disp(['Animation saved as ', filename]);
+
+% Plot Final Displacement
+figure;
+plot(x, u_current, 'r', 'LineWidth', 2);
+xlabel('x');
+ylabel('u(x, T)');
+title('Final Displacement at t = T');
+grid on;
+
+
