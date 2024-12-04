@@ -44,12 +44,6 @@ u_prev = u_current;
 c_squared = c.^2;
 gamma_dt = gamma * Delta_t;
 
-% Create VideoWriter object
-filename = 'test_P.avi';
-vidObj = VideoWriter(filename);
-vidObj.FrameRate = 10; % Set the frame rate
-open(vidObj);
-
 % Time stepping loop
 for n = 1:Nt-1
     % Update interior points
@@ -68,7 +62,7 @@ for n = 1:Nt-1
     u_prev = u_current;
     u_current = u_next;
     
-    % Visualization and capture frame for animation
+    % Visualization
     if mod(n, 100) == 0
         plot(x, u_current, 'b', 'LineWidth', 2);
         xlabel('x');
@@ -76,18 +70,8 @@ for n = 1:Nt-1
         title(['Displacement at time t = ', num2str(t(n))]);
         grid on;
         drawnow;
-
-        % Capture the frame for the video
-        frame = getframe(gcf);
-        writeVideo(vidObj, frame);
     end
 end
-
-% Close the VideoWriter object
-close(vidObj);
-
-% Display message
-disp(['Animation saved as ', filename]);
 
 % Plot Final Displacement
 figure;
@@ -96,5 +80,3 @@ xlabel('x');
 ylabel('u(x, T)');
 title('Final Displacement at t = T');
 grid on;
-
-
