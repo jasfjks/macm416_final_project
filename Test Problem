@@ -1,82 +1,66 @@
-% Domain Parameters
-Lx = 10; % Length of the domain in x-direction
-T_total = 5; % Total simulation time
-Nx = 100; % Number of spatial points
-Nt = 2000; % Number of time steps
+% Parameters
+L = 1.0;          % Length of the domain
+c = 1.0;          % Wave speed
+Nx = 100;         % Number of spatial points
+Nt = 500;         % Number of time steps
+T = 5.0;          % Total simulation time
 
-% Discretization
-Delta_x = Lx / (Nx - 1);
-Delta_t = T_total / Nt;
+% Derived parameters
+dx = L / Nx;      % Spatial step size
+dt = T / Nt;      % Time step size
+x = linspace(0, L, Nx+1);  % Spatial grid
+t = linspace(0, T, Nt+1);  % Time grid
 
-% Stability Condition (CFL)
-c_max = 2; % Maximum wave speed, adjust based on c(x)
-gamma = 0.1; % Damping coefficient
-if Delta_t > Delta_x / (c_max * sqrt(2))
-    error('CFL condition not met. Reduce Delta_t or increase Delta_x.');
+% CFL condition
+CFL = c * dt / dx;
+if CFL > 1
+    error('CFL condition violated. Reduce dt or increase dx.');
 end
 
-% Spatial Grid
-x = linspace(0, Lx, Nx);
+% Initialize solutions
+u = sin(pi * x / L);          % Initial displacement (at t=0)
+u_prev = u;                   % Displacement at t-dt (same as initial displacement)
+u_next = zeros(1, Nx+1);      % Placeholder for displacement at t+dt
 
-% Time Grid
-t = linspace(0, T_total, Nt);
+% Analytical solution for comparison
+u_analytical = @(x, t) sin(pi * x / L) .* cos(pi * c * t / L);
 
-% Define c(x)
-c = 1 + 0.5 * x; % Example: c(x) increases linearly with x
-
-% Define S(x, t)
-S = @(x, t) exp(-((x - Lx/2).^2) / 0.5^2) .* sin(pi * t / T_total); 
-% Gaussian pulse in space, sinusoidal in time
-
-% Initialize displacement matrices
-u_prev = zeros(Nx, 1); % Displacement at time n-1
-u_current = zeros(Nx, 1); % Displacement at time n
-u_next = zeros(Nx, 1); % Displacement at time n+1
-
-% Initial Displacement: Gaussian Pulse
-sigma = 0.5;
-u_current = exp(-((x - Lx/2).^2) / (2 * sigma^2));
-
-% Initial Velocity: Zero (u_prev = u_current)
-u_prev = u_current;
-
-% Precompute coefficients
-c_squared = c.^2;
-gamma_dt = gamma * Delta_t;
-
-% Time stepping loop
-for n = 1:Nt-1
-    % Update interior points
-    for i = 2:Nx-1
-        u_next(i) = (2 * u_current(i) - u_prev(i) + ...
-                    (c_squared(i) * Delta_t^2 / Delta_x^2) * ...
-                    (u_current(i+1) - 2 * u_current(i) + u_current(i-1)) + ...
-                    Delta_t^2 * S(x(i), t(n))) / (1 + gamma_dt);
+% Time-stepping loop
+for n = 1:Nt
+    % Update using the finite difference scheme
+    for i = 2:Nx
+        u_next(i) = 2 * (1 - CFL^2) * u(i) - u_prev(i) + CFL^2 * (u(i+1) + u(i-1));
     end
     
-    % Apply Boundary Conditions (Fixed boundaries: u=0)
+    % Boundary conditions (Dirichlet: u = 0 at boundaries)
     u_next(1) = 0;
-    u_next(Nx) = 0;
+    u_next(Nx+1) = 0;
     
-    % Update for next time step
-    u_prev = u_current;
-    u_current = u_next;
+    % Update time levels
+    u_prev = u;
+    u = u_next;
     
-    % Visualization
-    if mod(n, 100) == 0
-        plot(x, u_current, 'b', 'LineWidth', 2);
+    % Plot numerical and analytical solutions every 20 steps
+    if mod(n, 20) == 0
+        plot(x, u, 'b', 'LineWidth', 1.5); hold on;
+        plot(x, u_analytical(x, t(n+1)), 'r--', 'LineWidth', 1.5);
+        legend('Numerical', 'Analytical');
+        title(['Time: ', num2str(t(n+1))]);
         xlabel('x');
         ylabel('u(x, t)');
-        title(['Displacement at time t = ', num2str(t(n))]);
         grid on;
-        drawnow;
+        pause(0.01);
+        hold off;
     end
 end
 
-% Plot Final Displacement
+% Plot the final state
 figure;
-plot(x, u_current, 'r', 'LineWidth', 2);
+plot(x, u, 'b', 'LineWidth', 1.5); hold on;
+plot(x, u_analytical(x, T), 'r--', 'LineWidth', 1.5);
+legend('Numerical', 'Analytical');
+title(['Final State at Time: ', num2str(T)]);
 xlabel('x');
 ylabel('u(x, T)');
-title('Final Displacement at t = T');
 grid on;
+hold off;
